@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1004332655500",
+    "project_id": "arthaksh-599ca",
+    "storage_bucket": "arthaksh-599ca.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1004332655500:android:cc35b42129cf221bb36ca9",
+        "android_client_info": {
+          "package_name": "com.arthaksh.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5LRDbAVCI1T-Tj6QEeOse9awYe1ujZGA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

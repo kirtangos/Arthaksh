@@ -1,0 +1,196 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow public read access to facts
+    match /facts/{factId} {
+      allow read: if true;
+      
+      // Only allow writes if the user is authenticated and has admin claim
+      allow create, update, delete: if request.auth != null && 
+                                   request.auth.token.admin == true;
+      
+      // Validate document structure
+      allow create: if request.resource.data.keys().hasAll(['text']) &&
+                    request.resource.data.text is string &&
+                    request.resource.data.text != '' &&
+                    (request.resource.data.category == null || 
+                     request.resource.data.category is string) &&
+                    (request.resource.data.active == null || 
+                     request.resource.data.active is bool);
+    }
+
+    // Global transactions collection - users can only access their own transactions
+    match /transactions/{transactionId} {
+      // Allow read if the document's userId matches the authenticated user
+      allow read: if request.auth != null && 
+                 resource.data.userId == request.auth.uid;
+      
+      // Allow create if the new document has the user's ID
+      allow create: if request.auth != null && 
+                  request.resource.data.userId == request.auth.uid;
+      
+      // Allow update/delete if the document belongs to the user
+      allow update, delete: if request.auth != null && 
+                          resource.data.userId == request.auth.uid;
+    }
+
+    // Users can access only their own document and subcollections
+    match /users/{userId} {
+      // Helper functions
+      function isOwner() {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      
+      function hasPremiumAccess() {
+        return isOwner() && (
+          resource.data.isPremium == true || 
+          (resource.data.premiumFeatures != null && 
+           (resource.data.premiumFeatures.reminders == true ||
+            resource.data.premiumFeatures.scheduledPayments == true ||
+            resource.data.premiumFeatures.exportToExcel == true ||
+            resource.data.premiumFeatures.insights == true))
+        );
+      }
+
+      // Read/Write own user document with restrictions
+      allow read: if isOwner();
+      allow create: if isOwner() && 
+                   request.resource.data.keys().hasAll(['email']) &&
+                   request.resource.data.email is string;
+                   
+      allow update: if isOwner() &&
+                   !('isPremium' in request.resource.data.diff(resource.data).affectedKeys()) &&
+                   !('premiumFeatures' in request.resource.data.diff(resource.data).affectedKeys()) &&
+                   !('subscription' in request.resource.data.diff(resource.data).affectedKeys());
+
+      // User's personal transactions subcollection
+      match /transactions/{transactionId} {
+        // Only the owner can read/write their transactions
+        allow read, create, update, delete: if isOwner();
+      }
+      
+      // User's expenses subcollection
+      match /expenses/{expenseId} {
+        // Allow read if authenticated and it's their own data
+        allow read: if isOwner();
+        
+        // Allow create/update/delete if it's their own data
+        allow create, update, delete: if isOwner() && 
+            request.resource.data.userId == userId &&
+            request.resource.data.amount is number &&
+            request.resource.data.amount >= 0 &&
+            (request.resource.data.currency is string || 
+             request.resource.data.currency == null) &&
+            (request.resource.data.type is string || 
+             request.resource.data.type == null) &&
+            (request.resource.data.date is timestamp || 
+             request.resource.data.date == null);
+      }
+      
+      // Reminders subcollection - premium only
+      match /reminders/{reminderId} {
+        // Read only if owner
+        allow read: if isOwner();
+        
+        // Create/update only if premium
+        allow create: if isOwner() && hasPremiumAccess() &&
+                     request.resource.data.keys().hasAll([
+                       'title', 'dateTime', 'userId'
+                     ]) &&
+                     request.resource.data.title is string &&
+                     request.resource.data.dateTime is timestamp &&
+                     request.resource.data.userId == userId;
+                     
+        allow update: if isOwner() && hasPremiumAccess() &&
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                       'title', 'description', 'dateTime', 'isRecurring', 
+                       'recurrenceType', 'isCompleted', 'updatedAt'
+                     ]);
+                     
+        allow delete: if isOwner();
+      }
+
+      // Insights cache subcollection - premium only
+      match /insights_cache/{docId} {
+        // Read only if owner
+        allow read: if isOwner();
+
+        // Create only if premium; require minimal schema
+        allow create: if isOwner() && hasPremiumAccess() &&
+                      request.resource.data.keys().hasAll([
+                        'periodStart', 'periodEnd', 'generatedAt', 'userId'
+                      ]) &&
+                      request.resource.data.periodStart is timestamp &&
+                      request.resource.data.periodEnd is timestamp &&
+                      request.resource.data.generatedAt is timestamp &&
+                      request.resource.data.userId == userId;
+
+        // Update only specific analytic fields; keep ownership and period immutable
+        allow update: if isOwner() && hasPremiumAccess() &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                        // cached metrics
+                        'totals', 'trends', 'anomalies', 'categories', 'score',
+                        // metadata updates
+                        'generatedAt', 'notes'
+                      ]);
+
+        // Owner can delete
+        allow delete: if isOwner();
+      }
+      
+      // Scheduled payments subcollection - premium only
+      match /schedules/{scheduleId} {
+        // Read only if owner
+        allow read: if isOwner();
+        
+        // Create/update only if premium
+        allow create: if isOwner() && hasPremiumAccess() &&
+                     request.resource.data.keys().hasAll([
+                       'amount', 'category', 'date', 'scheduledTime', 'status', 'userId'
+                     ]) &&
+                     request.resource.data.amount is number &&
+                     request.resource.data.category is string &&
+                     request.resource.data.date is timestamp &&
+                     request.resource.data.scheduledTime is timestamp &&
+                     request.resource.data.status is string &&
+                     request.resource.data.userId == userId;
+                     
+        allow update: if isOwner() && hasPremiumAccess() &&
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                       'amount', 'category', 'date', 'scheduledTime', 'status',
+                       'label', 'notes', 'payeeItem', 'paymentMethod', 'type',
+                       'updatedAt'
+                     ]);
+                     
+        allow delete: if isOwner();
+      }
+
+      // Loans subcollection
+      match /loans/{loanId} {
+        // Only the owner can read/write their loans
+        allow read, create, update, delete: if isOwner();
+        
+        // Installments subcollection
+        match /installments/{installmentId} {
+          // Only the owner can read/write their installments
+          allow read, create, update, delete: if isOwner() &&
+              request.resource.data.amount is number &&
+              request.resource.data.amount >= 0 &&
+              request.resource.data.date is timestamp &&
+              (request.resource.data.paymentType is string || 
+               request.resource.data.paymentType == null);
+        }
+      }
+      
+      // Other subcollections (expenses, etc.) - basic access
+      match /{subcollection}/{document=**} {
+        allow read, write: if isOwner();
+      }
+    }
+
+    // Default deny all other operations
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

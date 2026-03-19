@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyC2H4KvdKi84WNr5G1o8Qh1ctMKGqPoLEU</string>
+	<key>GCM_SENDER_ID</key>
+	<string>1004332655500</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.arthaksh.app</string>
+	<key>PROJECT_ID</key>
+	<string>arthaksh-599ca</string>
+	<key>STORAGE_BUCKET</key>
+	<string>arthaksh-599ca.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:1004332655500:ios:ea7fdafb2ea9f238b36ca9</string>
+</dict>
+</plist>
